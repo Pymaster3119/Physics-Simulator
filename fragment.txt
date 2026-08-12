@@ -1,0 +1,97 @@
+#version 330 core
+
+in vec3 fragment_color;
+in vec3 vertex_positiont;
+out vec4 screen_color;
+
+uniform float u_screenWidth;
+uniform float u_screenHeight;
+
+uniform vec3 u_cameraPos;
+uniform vec3 u_cameraAngle;
+
+uniform mat3 u_rotation_matrix;
+
+uniform int u_pointCount;
+uniform samplerBuffer u_points_tex;
+
+float customDot (vec3 a, vec3 b)
+{
+    //TODO: update
+    return dot(a, b);
+}
+
+vec3 customNormalize (vec3 a)
+{
+    //TODO: update
+    return normalize(a);
+}
+
+
+vec3 getPoint(int i) {
+    vec4 t = texelFetch(u_points_tex, i);
+    return t.xyz;
+}
+
+float getRadius(int i) {
+    vec4 t = texelFetch(u_points_tex, i);
+    return t.a;
+}
+
+float calculate_intersection(vec3 worldRay, vec3 point, float radius) {
+    vec3 oc = u_cameraPos - point;
+
+    float a = customDot(worldRay, worldRay);
+    float b = 2 * customDot(oc, worldRay);
+    float c = customDot(oc, oc) - radius * radius;
+
+    float discriminant = b*b - 4*a*c;
+    if (discriminant < 0) {return 9999999;} //no hit :(
+
+    float sqrt_disc = sqrt(discriminant);
+    float t1 = (-b - sqrt_disc) / (2*a);
+    float t2 = (-b + sqrt_disc) / (2*a);
+    if (t1 >= 0) {return t1;}
+    if (t2 >= 0) {return t2;}
+    return 9999999;  //no hit :(
+}
+
+
+
+void main() {
+    //Convert vertical FOV to radians
+    float fovRadians = radians(60);
+    float tanHalfFov = tan(fovRadians / 2.0);
+
+    
+    //Get position values normalized between -1 and 1 accounting for aspect ratio
+    vec2 pixelPos = gl_FragCoord.xy;
+    pixelPos[0] = pixelPos[0] / u_screenWidth;
+    pixelPos[1] = pixelPos[1] / u_screenHeight;
+    pixelPos = pixelPos * 2 - 1;
+    pixelPos[0] = pixelPos[0] * (u_screenWidth / u_screenHeight);
+    pixelPos = pixelPos * tanHalfFov;
+
+    //create the local ray and transform it into world ray
+    vec3 localRay = vec3(pixelPos[0], pixelPos[1], 1);
+    vec3 worldRay = u_rotation_matrix * localRay;
+    worldRay = customNormalize(worldRay);
+
+    //Calculate intersection with points
+    bool intersected = true;
+    float closest_dist = 999999;
+    vec3 closest_center = getPoint(0);
+    for (int i = 0; i < u_pointCount; i++) {
+        float dist = calculate_intersection(worldRay, getPoint(i), getRadius(i));
+        if (closest_dist > dist) {closest_dist = dist; closest_center = getPoint(i);}
+    }
+    if (closest_dist < 999999){
+        vec3 intersection_point = u_cameraPos + closest_dist * worldRay;
+    
+        vec3 normal = customNormalize(intersection_point - closest_center);
+        vec3 lightDir = customNormalize(vec3(1.0, 1.0, -1.0));
+        float color = max(0.0, customDot(normal, lightDir)) + 0.1;
+        
+        screen_color = vec4(color,color,color,1);
+    } else {screen_color = vec4(0, 0, 0, 1);}
+}
