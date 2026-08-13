@@ -27,7 +27,7 @@ class TKWindow():
             velnew = np.linalg.norm(np.array(CAMERAVELOCITY))
             self.velocity.set(f"{velnew} meters per second/ {LIGHTSPEED} meters per second")
             self.beta.set(f"β = {velnew / LIGHTSPEED}")
-            self.dt.set(f"{dT * framerate} seconds in an second from a stationary reference frame")
+            self.dt.set(f"1 second for you is {dT * framerate} seconds in a stationary reference frame")
         except:
             pass
         self.root.after(25, self.update_vals)

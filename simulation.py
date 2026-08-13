@@ -106,9 +106,11 @@ class Renderer:
         match = re.match(r"^\(([^,]+),([^,]+),([^,]+)\)$", velocity)
         if match:
             vx, vy, vz = match.groups()
-            x += self.referenceFrameDT * float(vx)
-            y += self.referenceFrameDT * float(vy)
-            z += self.referenceFrameDT * float(vz)
+            v = np.linalg.norm(np.array([vx,vy,vz]))
+            dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
+            x += dt * float(vx)
+            y += dt * float(vy)
+            z += dt * float(vz)
         else:
             raise Exception("One of the velocity strings is not correct: " + velocity)
         return [x,y,z,r,mass,velocity, force_controlled_by_keyboard]
@@ -144,7 +146,7 @@ class Renderer:
         
     def write_to_json(self):
         with open("simulatorstats.json", "w") as txt:
-            readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.dT, "FRAMERATE": FRAMERATE}, txt)
+            readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.referenceFrameDT, "FRAMERATE": FRAMERATE}, txt)
 
     def draw(self):
         print("Frame passed!")
