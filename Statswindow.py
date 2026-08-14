@@ -8,10 +8,12 @@ class TKWindow():
         self.velocity = tkinter.StringVar()
         self.beta = tkinter.StringVar()
         self.dt = tkinter.StringVar()
+        self.framerate = tkinter.StringVar()
         self.root.title("Statistics")
         tkinter.Label(self.root, textvariable=self.velocity).pack()
         tkinter.Label(self.root, textvariable=self.beta).pack()
         tkinter.Label(self.root, textvariable=self.dt).pack()
+        tkinter.Label(self.root, textvariable=self.framerate).pack()
         self.update_vals()
         self.root.mainloop()
 
@@ -28,6 +30,7 @@ class TKWindow():
             self.velocity.set(f"{velnew} meters per second/ {LIGHTSPEED} meters per second")
             self.beta.set(f"β = {velnew / LIGHTSPEED}")
             self.dt.set(f"1 second for you is {dT * framerate} seconds in a stationary reference frame")
+            self.framerate.set(f"Running at framerate {framerate}")
         except:
             pass
         self.root.after(25, self.update_vals)

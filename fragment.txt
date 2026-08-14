@@ -14,6 +14,7 @@ uniform mat3 u_rotation_matrix;
 
 uniform int u_pointCount;
 uniform samplerBuffer u_points_tex;
+uniform samplerBuffer u_star_velocities;
 
 float customDot (vec3 a, vec3 b)
 {
@@ -38,31 +39,60 @@ float getRadius(int i) {
     return t.a;
 }
 
-float calculate_intersection(vec3 worldRay, vec3 point, float radius) {
-    vec3 oc = u_cameraPos - point;
+float getGamma(int i) {
+    vec4 t = texelFetch(u_star_velocities, i);
+    return t.a;
+}
 
+vec3 getVhat(int i) {
+    vec4 t = texelFetch(u_star_velocities, i);
+    return t.xyz;
+}
+
+vec3 calculate_intersection(vec3 worldRay, vec3 point, float radius, int i) {
+    //Transform to compressed space
+    vec3 vhat = getVhat(i);
+    float gamma = getGamma(i);
+    vec3 dparallel = customDot(worldRay, vhat) * vhat;
+    vec3 dperpendicular = worldRay - dparallel;
+    worldRay = gamma * dparallel + dperpendicular;
+
+    vec3 oc = u_cameraPos - point;
+    vec3 ocparallel = customDot(oc, vhat) * vhat;
+    vec3 ocperp = oc - ocparallel;
+    oc = gamma * ocparallel + ocperp;
+
+    //intersect
     float a = customDot(worldRay, worldRay);
     float b = 2 * customDot(oc, worldRay);
     float c = customDot(oc, oc) - radius * radius;
 
     float discriminant = b*b - 4*a*c;
-    if (discriminant < 0) {return 9999999;} //no hit :(
+    if (discriminant < 0) {return vec3(9999999, 0,0);} //no hit :(
 
     float sqrt_disc = sqrt(discriminant);
     float t1 = (-b - sqrt_disc) / (2*a);
     float t2 = (-b + sqrt_disc) / (2*a);
-    if (t1 >= 0) {return t1;}
-    if (t2 >= 0) {return t2;}
-    return 9999999;  //no hit :(
-}
+    float unmodified_dist = -1000000;
+    if (t1 >= 0) {unmodified_dist = t1;}
+    if (t2 >= 0 && t2 < unmodified_dist) {unmodified_dist = t2;}
 
+    if (unmodified_dist < -1) {return vec3(9999999, 0,0);} //no hit :(
+
+    vec3 intersection_point = oc + unmodified_dist * worldRay;
+    
+    //Untransform
+    vec3 intparallel = customDot(intersection_point, vhat) * vhat;
+    vec3 intperpendicular = intersection_point - intparallel;
+    vec3 untransformed = intparallel / gamma + intperpendicular;
+    return point + untransformed;
+}
 
 
 void main() {
     //Convert vertical FOV to radians
     float fovRadians = radians(60);
     float tanHalfFov = tan(fovRadians / 2.0);
-
     
     //Get position values normalized between -1 and 1 accounting for aspect ratio
     vec2 pixelPos = gl_FragCoord.xy;
@@ -80,15 +110,23 @@ void main() {
     //Calculate intersection with points
     bool intersected = true;
     float closest_dist = 999999;
+    int closest_index = -1;
     vec3 closest_center = getPoint(0);
+    vec3 closest_intersection = getPoint(0);
     for (int i = 0; i < u_pointCount; i++) {
-        float dist = calculate_intersection(worldRay, getPoint(i), getRadius(i));
-        if (closest_dist > dist) {closest_dist = dist; closest_center = getPoint(i);}
+        vec3 inter = calculate_intersection(worldRay, getPoint(i), getRadius(i), i);
+        float dist = length(inter - u_cameraPos);
+        if (closest_dist > dist) {closest_dist = dist; closest_center = getPoint(i); closest_index = i; closest_intersection = inter;}
     }
     if (closest_dist < 999999){
-        vec3 intersection_point = u_cameraPos + closest_dist * worldRay;
-    
-        vec3 normal = customNormalize(intersection_point - closest_center);
+        vec3 vhat = getVhat(closest_index);
+        float gamma = getGamma(closest_index);
+        vec3 r = closest_intersection - closest_center;
+        vec3 rparallel = customDot(r, vhat) * vhat;
+        vec3 rperp = r - rparallel;
+        vec3 normal = rperp + rparallel / (gamma * gamma);
+        normal = customNormalize(normal);
+        
         vec3 lightDir = customNormalize(vec3(1.0, 1.0, -1.0));
         float color = max(0.0, customDot(normal, lightDir)) + 0.1;
         

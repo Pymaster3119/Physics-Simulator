@@ -6,6 +6,7 @@ import math
 import readspheres
 import re
 import tkinter
+import time
 
 
 SCREEN_SIZE = (500, 500)
@@ -13,9 +14,9 @@ SCREEN_SIZE = (500, 500)
 WINDOW_CREATION_FLAGS = pg.OPENGL | pg.DOUBLEBUF
 FRAMERATE = 30
 DATA_TYPE_COLORED_VERTEX = np.dtype({
-    'names': ['x','y','z'],
     'formats': [np.float32, np.float32, np.float32],
     'offsets': [0, 4, 8],
+    'names': ['x','y','z'],
     'itemsize': 12})
 
 CAMERAPOSITION = [0,0,-3]
@@ -24,6 +25,10 @@ FORCE = [0,0,0]
 MAX_FORCE = 2.7e6
 LIGHTSPEED = 299792458
 CAMERAVELOCITY = [0,0,0]
+
+
+timeBetweenFrames = 1/FRAMERATE
+frameStartTime = time.time_ns()
 
 pg.init()
 pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
@@ -85,6 +90,7 @@ class Renderer:
         self.matrixLoc = glGetUniformLocation(self.shader, "u_rotation_matrix")
         self.point_count_loc = glGetUniformLocation(self.shader, "u_pointCount")
         self.point_buffer_loc = glGetUniformLocation(self.shader, "u_points_tex")
+        self.velocity_buffer_loc = glGetUniformLocation(self.shader, "u_star_velocities")
         self.camearmass, self.cameravelocity, self.cameraforce = readspheres.read_cam()
         self.points = readspheres.get_full_points()
         match = re.match(r"^\(([^,]+),([^,]+),([^,]+)\)$", self.cameravelocity)
@@ -99,24 +105,31 @@ class Renderer:
         else:
             raise Exception("One of the velocity strings is not correct: " + self.cameravelocity)
 
-
-    def update_point(self, point):
-        x,y,z,r,mass,velocity, force_controlled_by_keyboard = point
-        velocity = velocity.strip()
-        match = re.match(r"^\(([^,]+),([^,]+),([^,]+)\)$", velocity)
+    def parseVelocities(self, str):
+        match = re.match(r"^\(([^,]+),([^,]+),([^,]+)\)$", str)
         if match:
             vx, vy, vz = match.groups()
-            v = np.linalg.norm(np.array([vx,vy,vz]))
-            dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
-            x += dt * float(vx)
-            y += dt * float(vy)
-            z += dt * float(vz)
         else:
-            raise Exception("One of the velocity strings is not correct: " + velocity)
+            raise Exception("One of the velocity strings is not correct: " + str)
+
+        return [float(vx), float(vy), float(vz)]
+    def update_point(self, point):
+        x,y,z,r,mass,velocity, force_controlled_by_keyboard = point
+        
+        vx, vy, vz = self.parseVelocities(velocity.strip())
+        v = np.linalg.norm(np.array([vx,vy,vz]))
+        dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
+        x += dt * float(vx)
+        y += dt * float(vy)
+        z += dt * float(vz)
+        
         return [x,y,z,r,mass,velocity, force_controlled_by_keyboard]
+    
     def update_points(self):
-        global CAMERAPOSITION, CAMERAVELOCITY
+        global CAMERAPOSITION, CAMERAVELOCITY, timeBetweenFrames
         # CALCULATE WORLD DELTATIME
+        self.dT = timeBetweenFrames / 1e9
+        print(self.dT)
         v = np.linalg.norm(np.array(CAMERAVELOCITY))
         gamma = 1/ math.sqrt(1 - (v/LIGHTSPEED) ** 2)
         self.referenceFrameDT = self.dT * gamma
@@ -143,14 +156,53 @@ class Renderer:
         CAMERAPOSITION = (cx, cy, cz)
         self.cameravelocity = [vx, vy, vz]
         CAMERAVELOCITY = self.cameravelocity
+
+    def calculate_length_contraction(self, star_point):
+        global CAMERAPOSITION, CAMERAVELOCITY
+        x,y,z,r,mass,velocity, force_controlled_by_keyboard = star_point
+        velocity = np.array(self.parseVelocities(velocity))
+        cameravel = np.array(CAMERAVELOCITY)
+        relative_position = np.array([x - CAMERAPOSITION[0], y - CAMERAPOSITION[1], z-CAMERAPOSITION[2]])
+
+        #3-D addition of forces relativistically
+        v = cameravel/np.linalg.norm(cameravel)
+        starvelparalel = np.dot(velocity, v)
+        relativeparalelvel = (starvelparalel - np.linalg.norm(cameravel)) / (1 - (starvelparalel * np.linalg.norm(cameravel))/(LIGHTSPEED**2))
+        starvelperp = velocity - starvelparalel * v
+        gammav = 1/math.sqrt(1 - (np.linalg.norm(cameravel) ** 2)/(LIGHTSPEED ** 2))
+        relativeperpvel = starvelperp / (gammav * (1 - (starvelparalel * np.linalg.norm(cameravel))/(LIGHTSPEED ** 2)))
+        relativevelocity = relativeparalelvel * v + relativeperpvel
+
+        if np.linalg.norm(cameravel) == 0:
+            relativevelocity = velocity
+
+        #Calculate length contraction
+        relative_speed = np.linalg.norm(relativevelocity)
+        gamma = 0
+        velocity_hat = 0
+        if relative_speed == 0:
+            gamma = 1
+            velocity_hat = np.array([1.0,0.0,0.0])
+        else:
+            velocity_hat = relativevelocity / relative_speed
+            gamma = 1/math.sqrt(1-((relative_speed**2)/(LIGHTSPEED**2)))
+        return velocity_hat[0], velocity_hat[1], velocity_hat[2], gamma
+
+
         
     def write_to_json(self):
         with open("simulatorstats.json", "w") as txt:
-            readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.referenceFrameDT, "FRAMERATE": FRAMERATE}, txt)
+            readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.referenceFrameDT, "FRAMERATE": 1/(timeBetweenFrames/1e9)}, txt)
 
     def draw(self):
-        print("Frame passed!")
+        global timeBetweenFrames, frameStartTime
+        #Update framerate and points
+        currentTime = time.time_ns()
+        timeBetweenFrames = currentTime - frameStartTime
+        frameStartTime = currentTime
         self.update_points()
+
+        #Calculate rotation matrices
         matx = np.array([
             [1.0, 0.0, 0.0],
             [0.0, math.cos(math.radians(CAMERAROTATION[0])), -math.sin(math.radians(CAMERAROTATION[0]))],
@@ -170,7 +222,7 @@ class Renderer:
         ], dtype=np.float32)
         rotmat = matz @ maty @ matx
 
-        
+        #Populate points matrix & upload to GPU
         N = len(self.points)
         points = [i[0:4] for i in self.points]
         data = np.array(points, dtype=np.float64)
@@ -186,11 +238,32 @@ class Renderer:
         glActiveTexture(GL_TEXTURE0 + texture_unit)
         glBindTexture(GL_TEXTURE_BUFFER, tex)
 
+        #Populate the distances matrix & upload to GPU
+        distances = [self.calculate_length_contraction(i) for i in self.points]
+        # Upload distances (vx, vy, vz, gamma) as a texture buffer — DO NOT divide by 1e12
+        dist_data = np.array(distances, dtype=np.float32)
+        print(dist_data)
+        print(dist_data.shape)
+        dist_data = dist_data.reshape((-1,4))
+
+        buf2 = glGenBuffers(1)
+        glBindBuffer(GL_TEXTURE_BUFFER, buf2)
+        glBufferData(GL_TEXTURE_BUFFER, dist_data.nbytes, dist_data, GL_STATIC_DRAW)
+
+        tex2 = glGenTextures(1)
+        texture_unit2 = 1
+        glActiveTexture(GL_TEXTURE0 + texture_unit2)
+        glBindTexture(GL_TEXTURE_BUFFER, tex2)
+        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, buf2)
+
+        
+
         glClear(GL_COLOR_BUFFER_BIT)
         glUseProgram(self.shader)
 
         # Now that the program is active, set sampler and other uniforms
         glUniform1i(self.point_buffer_loc, texture_unit)
+        glUniform1i(self.velocity_buffer_loc, texture_unit2)
         glUniform1i(self.point_count_loc, N)
         glUniform1f(self.widthloc, SCREEN_SIZE[0])
         glUniform1f(self.heightloc, SCREEN_SIZE[1])

@@ -64,9 +64,9 @@ class SphereApp:
         self.fig = plt.Figure(figsize=(6, 6))
         self.ax = self.fig.add_subplot(111, projection="3d")
         
-        self.ax.set_xlim(-20, 20)
-        self.ax.set_ylim(-20, 20)
-        self.ax.set_zlim(-20, 20)
+        self.ax.set_xlim(-25920000000, 25920000000)
+        self.ax.set_ylim(-25920000000, 25920000000)
+        self.ax.set_zlim(-25920000000, 25920000000)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=root)
         self.canvas.get_tk_widget().pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
@@ -105,9 +105,9 @@ class SphereApp:
     def clear(self):
         self.spheres.clear()
         self.listbox.delete(0, tk.END)
-        self.ax.set_xlim(-20, 20)
-        self.ax.set_ylim(-20, 20)
-        self.ax.set_zlim(-20, 20)
+        self.ax.set_xlim(-25920000000, 25920000000)
+        self.ax.set_ylim(-25920000000, 25920000000)
+        self.ax.set_zlim(-25920000000, 25920000000)
         self.redraw()
 
     def redraw(self):
@@ -141,13 +141,13 @@ class SphereApp:
                 ])
             pts = np.array(pts)
 
-            self.ax.set_xlim(-20, 20)
-            self.ax.set_ylim(-20, 20)
-            self.ax.set_zlim(-20, 20)
+            self.ax.set_xlim(-25920000000, 25920000000)
+            self.ax.set_ylim(-25920000000, 25920000000)
+            self.ax.set_zlim(-25920000000, 25920000000)
         else:
-            self.ax.set_xlim(-20, 20)
-            self.ax.set_ylim(-20, 20)
-            self.ax.set_zlim(-20, 20)
+            self.ax.set_xlim(-25920000000, 25920000000)
+            self.ax.set_ylim(-25920000000, 25920000000)
+            self.ax.set_zlim(-25920000000, 25920000000)
 
         self.canvas.draw()
 
