@@ -29,11 +29,6 @@ vec3 customNormalize (vec3 a)
 }
 
 
-vec3 getPoint(int i) {
-    vec4 t = texelFetch(u_points_tex, i);
-    return t.xyz;
-}
-
 float getRadius(int i) {
     vec4 t = texelFetch(u_points_tex, i);
     return t.a;
@@ -49,6 +44,18 @@ vec3 getVhat(int i) {
     return t.xyz;
 }
 
+vec3 getPoint(int i) {
+    vec4 t = texelFetch(u_points_tex, i);
+    vec3 pos = t.xyz;
+    float gamma = getGamma(i);
+    vec3 vhat = getVhat(i);
+
+    vec3 dparallel = customDot(pos, vhat) * vhat;
+    vec3 dperp = pos - dparallel;
+    pos = dparallel / gamma + dperp;
+    return pos;
+}
+
 vec3 calculate_intersection(vec3 worldRay, vec3 point, float radius, int i) {
     //Transform to compressed space
     vec3 vhat = getVhat(i);
@@ -57,7 +64,7 @@ vec3 calculate_intersection(vec3 worldRay, vec3 point, float radius, int i) {
     vec3 dperpendicular = worldRay - dparallel;
     worldRay = gamma * dparallel + dperpendicular;
 
-    vec3 oc = u_cameraPos - point;
+    vec3 oc = - point;
     vec3 ocparallel = customDot(oc, vhat) * vhat;
     vec3 ocperp = oc - ocparallel;
     oc = gamma * ocparallel + ocperp;

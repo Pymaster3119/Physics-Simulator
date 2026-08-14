@@ -117,11 +117,11 @@ class Renderer:
         x,y,z,r,mass,velocity, force_controlled_by_keyboard = point
         
         vx, vy, vz = self.parseVelocities(velocity.strip())
-        v = np.linalg.norm(np.array([vx,vy,vz]))
-        dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
-        x += dt * float(vx)
-        y += dt * float(vy)
-        z += dt * float(vz)
+        # v = np.linalg.norm(np.array([vx,vy,vz]))
+        # dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
+        # x += dt * float(vx)
+        # y += dt * float(vy)
+        # z += dt * float(vz)
         
         return [x,y,z,r,mass,velocity, force_controlled_by_keyboard]
     
@@ -224,7 +224,7 @@ class Renderer:
 
         #Populate points matrix & upload to GPU
         N = len(self.points)
-        points = [i[0:4] for i in self.points]
+        points = [[i[0] - CAMERAPOSITION[0], i[1] - CAMERAPOSITION[1], i[2] - CAMERAPOSITION[2], i[3]] for i in self.points]
         data = np.array(points, dtype=np.float64)
         data = data / 1e12
         data = data.astype(np.float32)
