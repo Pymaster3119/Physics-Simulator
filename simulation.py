@@ -117,11 +117,11 @@ class Renderer:
         x,y,z,r,mass,velocity, force_controlled_by_keyboard = point
         
         vx, vy, vz = self.parseVelocities(velocity.strip())
-        # v = np.linalg.norm(np.array([vx,vy,vz]))
-        # dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
-        # x += dt * float(vx)
-        # y += dt * float(vy)
-        # z += dt * float(vz)
+        v = np.linalg.norm(np.array([vx,vy,vz]))
+        dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
+        x += dt * float(vx)
+        y += dt * float(vy)
+        z += dt * float(vz)
         
         return [x,y,z,r,mass,velocity, force_controlled_by_keyboard]
     
