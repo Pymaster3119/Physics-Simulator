@@ -22,7 +22,7 @@ DATA_TYPE_COLORED_VERTEX = np.dtype({
 CAMERAPOSITION = [0,0,-3]
 CAMERAROTATION = [0,0,0]
 FORCE = [0,0,0]
-MAX_FORCE = 2.7e6
+MAX_FORCE = 1e8
 LIGHTSPEED = 299792458
 CAMERAVELOCITY = [0,0,0]
 
@@ -91,11 +91,12 @@ class Renderer:
         self.point_count_loc = glGetUniformLocation(self.shader, "u_pointCount")
         self.point_buffer_loc = glGetUniformLocation(self.shader, "u_points_tex")
         self.velocity_buffer_loc = glGetUniformLocation(self.shader, "u_star_velocities")
-        self.camearmass, self.cameravelocity, self.cameraforce = readspheres.read_cam()
+        self.cameramass, self.cameravelocity, self.cameraforce = readspheres.read_cam()
         self.points = readspheres.get_full_points()
         match = re.match(r"^\(([^,]+),([^,]+),([^,]+)\)$", self.cameravelocity)
         self.dT = (1/FRAMERATE)
         self.referenceFrameDT = (1/FRAMERATE)
+        self.acc = [0,0,0]
         if match:
             vx, vy, vz = match.groups()
             vx = float(vx)
@@ -141,21 +142,77 @@ class Renderer:
         cx, cy, cz = CAMERAPOSITION
         vx, vy, vz = self.cameravelocity
         if self.cameraforce:
-            #USING: A = F/m
-            ax = FORCE[0] / self.camearmass
-            ay = FORCE[1] / self.camearmass
-            az = FORCE[2] / self.camearmass
+            f = np.array(FORCE)
+            if np.linalg.norm(f) != 0:
+                v = np.array(CAMERAVELOCITY)
+                funit = f / np.linalg.norm(f)
+                v_parallel = np.dot(v, funit) * funit
+                v_perp = v - v_parallel
+                v_parallel = np.dot(v,funit)
+                v_perp = np.linalg.norm(v_perp)
+                v_par_vec = np.dot(v, funit) * funit
+                v_perp_vec = v - v_par_vec
+                norm_v_perp = np.linalg.norm(v_perp_vec)
+                u_perp = v_perp_vec / norm_v_perp if norm_v_perp > 1e-10 else None
 
-            vx += self.dT * float(ax)
-            vy += self.dT * float(ay)
-            vz += self.dT * float(az)
+                #Calculate inital momenta
+                pOparallel = self.cameramass * v_parallel / math.sqrt(1 - (np.linalg.norm(v)**2 / LIGHTSPEED ** 2))
+                pOperp = self.cameramass * v_perp / math.sqrt(1 - (np.linalg.norm(v)**2 / LIGHTSPEED ** 2))
+                
+
+                #Calculate updated velocities
+                vparallel = (LIGHTSPEED * ((pOparallel + np.linalg.norm(f) * self.dT))) / math.sqrt(((self.cameramass**2 * LIGHTSPEED**2) + ((pOparallel + np.linalg.norm(f) * self.dT)** 2) + pOperp ** 2))
+                vperp = (pOperp * LIGHTSPEED) / math.sqrt(self.cameramass**2*LIGHTSPEED**2 + (pOparallel +np.linalg.norm(f)*self.dT)**2 + pOperp**2)
+                if u_perp is not None:
+                    vprime = vparallel * funit + vperp * u_perp
+                else:
+                    vprime = vparallel * funit
+                vx = vprime[0]
+                vy = vprime[1]
+                vz = vprime[2]
+
+                #Calculate updated accelerations
+                aparallel = (LIGHTSPEED * np.linalg.norm(f) * (self.cameramass**2*LIGHTSPEED**2 + pOperp**2))/(self.cameramass**2 * LIGHTSPEED**2 + (pOparallel + np.linalg.norm(f) * self.dT)**2 + pOperp**2)**1.5
+                aperp = (-pOperp * LIGHTSPEED * np.linalg.norm(f) * (pOparallel + np.linalg.norm(f) * self.dT)) / ((self.cameramass**2*LIGHTSPEED**2 + (pOparallel+np.linalg.norm(f)*self.dT)**2 + pOperp**2)**1.5)
+                if u_perp is not None:
+                    aprime = aparallel * funit + aperp * u_perp
+                else:
+                    aprime = aparallel * funit
+                self.acc = [aprime[0], aprime[1], aprime[2]]
+
+
+                #Calculate updated position
+                xparallel = LIGHTSPEED * math.sqrt(self.cameramass**2 * LIGHTSPEED**2 + (pOparallel+np.linalg.norm(f) * self.dT)**2 + pOperp**2) / np.linalg.norm(f)
+                xparallel -= LIGHTSPEED * math.sqrt(self.cameramass**2 * LIGHTSPEED**2 + (pOparallel)**2 + pOperp**2) / np.linalg.norm(f)
+                xperp = (pOperp * LIGHTSPEED / np.linalg.norm(f)) * math.asinh((pOparallel + np.linalg.norm(f)*self.dT)/(math.sqrt(self.cameramass**2*LIGHTSPEED**2 + pOperp**2)))
+                xperp -= (pOperp * LIGHTSPEED / np.linalg.norm(f)) * math.asinh((pOparallel)/(math.sqrt(self.cameramass**2*LIGHTSPEED**2 + pOperp**2)))
+                if u_perp is not None:
+                    xprime = xparallel * funit + xperp * u_perp
+                else:
+                    xprime = xparallel * funit
+                CAMERAPOSITION = [CAMERAPOSITION[0] + xprime[0], CAMERAPOSITION[1] + xprime[1], CAMERAPOSITION[2] + xprime[2]]
+
+                self.cameravelocity = [vx, vy, vz]
+                CAMERAVELOCITY = self.cameravelocity
+
+            else:
+                self.acc = [0,0,0]
             
-        cx += self.dT * float(vx)
-        cy += self.dT * float(vy)
-        cz += self.dT * float(vz)
-        CAMERAPOSITION = (cx, cy, cz)
-        self.cameravelocity = [vx, vy, vz]
-        CAMERAVELOCITY = self.cameravelocity
+                cx += self.dT * float(vx)
+                cy += self.dT * float(vy)
+                cz += self.dT * float(vz)
+                CAMERAPOSITION = (cx, cy, cz)
+                self.cameravelocity = [vx, vy, vz]
+                CAMERAVELOCITY = self.cameravelocity
+        else:
+            self.acc = [0,0,0]
+        
+            cx += self.dT * float(vx)
+            cy += self.dT * float(vy)
+            cz += self.dT * float(vz)
+            CAMERAPOSITION = (cx, cy, cz)
+            self.cameravelocity = [vx, vy, vz]
+            CAMERAVELOCITY = self.cameravelocity
 
     def calculate_length_contraction(self, star_point):
         global CAMERAPOSITION, CAMERAVELOCITY
@@ -192,7 +249,7 @@ class Renderer:
         
     def write_to_json(self):
         with open("simulatorstats.json", "w") as txt:
-            readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.referenceFrameDT, "FRAMERATE": 1/(timeBetweenFrames/1e9)}, txt)
+            readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.referenceFrameDT, "FRAMERATE": 1/(timeBetweenFrames/1e9), "FORCE": FORCE, "ACC": self.acc}, txt)
 
     def draw(self):
         global timeBetweenFrames, frameStartTime
@@ -242,8 +299,6 @@ class Renderer:
         distances = [self.calculate_length_contraction(i) for i in self.points]
         # Upload distances (vx, vy, vz, gamma) as a texture buffer — DO NOT divide by 1e12
         dist_data = np.array(distances, dtype=np.float32)
-        print(dist_data)
-        print(dist_data.shape)
         dist_data = dist_data.reshape((-1,4))
 
         buf2 = glGenBuffers(1)
