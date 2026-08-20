@@ -23,9 +23,10 @@ class SphereApp:
         ttk.Label(control, text="Mass").grid(row = 4, column = 0)
         ttk.Label(control, text="Initial Velocity - format (vx, vy, vz)").grid(row = 5, column = 0)
         ttk.Label(control, text="Force Controlled by Keyboard?").grid(row = 6, column = 0)
-        ttk.Label(control, text="Camera mass (camera is at (0,0,0))").grid(row=7, column=0)
-        ttk.Label(control, text="Camera Velocity - format (vx, vy, vz)").grid(row=8, column=0)
-        ttk.Label(control, text="Camera Force Control").grid(row=9, column=0)
+        ttk.Label(control, text="Tracked object?").grid(row=7, column=0)
+        ttk.Label(control, text="Camera mass (camera is at (0,0,0))").grid(row=8, column=0)
+        ttk.Label(control, text="Camera Velocity - format (vx, vy, vz)").grid(row=9, column=0)
+        ttk.Label(control, text="Camera Force Control").grid(row=10, column=0)
 
         self.radius = tk.StringVar(value="1")
         self.cx = tk.StringVar(value="0")
@@ -34,6 +35,7 @@ class SphereApp:
         self.mass = tk.StringVar(value="0.1")
         self.velocity = tk.StringVar(value="(0, 0, 0)")
         self.force = tk.BooleanVar(value = False)
+        self.tracked = tk.BooleanVar(value = False)
         self.cammass = tk.StringVar(value="0.1")
         self.camvel = tk.StringVar(value="(0, 0, 0)")
         self.camforce = tk.BooleanVar(value = True)
@@ -46,20 +48,21 @@ class SphereApp:
         ttk.Entry(control, textvariable=self.mass, width=10).grid(row=4, column=1)
         ttk.Entry(control, textvariable=self.velocity, width=10).grid(row=5, column=1)
         ttk.Checkbutton(control, variable=self.force, width=10).grid(row=6, column=1)
-        ttk.Entry(control, textvariable=self.cammass, width=10).grid(row=7, column=1)
-        ttk.Entry(control, textvariable=self.camvel, width=10).grid(row=8, column=1)
-        ttk.Checkbutton(control, variable=self.camforce, width=10).grid(row=9, column=1)
+        ttk.Checkbutton(control, variable=self.tracked, width=10).grid(row=7, column=1)
+        ttk.Entry(control, textvariable=self.cammass, width=10).grid(row=8, column=1)
+        ttk.Entry(control, textvariable=self.camvel, width=10).grid(row=9, column=1)
+        ttk.Checkbutton(control, variable=self.camforce, width=10).grid(row=10, column=1)
 
         ttk.Button(control, text="Add Sphere", command=self.add_sphere).grid(
-            row=10, column=0, columnspan=2, pady=10, sticky="ew"
+            row=11, column=0, columnspan=2, pady=10, sticky="ew"
         )
 
         ttk.Button(control, text="Clear All", command=self.clear).grid(
-            row=11, column=0, columnspan=2, sticky="ew"
+            row=12, column=0, columnspan=2, sticky="ew"
         )
 
         self.listbox = tk.Listbox(control, width=80, height=15)
-        self.listbox.grid(row=12, column=0, columnspan=2, pady=10)
+        self.listbox.grid(row=13, column=0, columnspan=2, pady=10)
 
         self.fig = plt.Figure(figsize=(6, 6))
         self.ax = self.fig.add_subplot(111, projection="3d")
@@ -92,13 +95,14 @@ class SphereApp:
             mass = float(self.mass.get())
             velocity = self.velocity.get()
             force = self.force.get()
+            tracked = self.tracked.get()
         except ValueError:
             return
 
-        self.spheres.append((r, cx, cy, cz, mass, velocity, force))
+        self.spheres.append((r, cx, cy, cz, mass, velocity, force, tracked))
         self.listbox.insert(
             tk.END,
-            f"R={r}, ({cx}, {cy}, {cz}), Mass={mass}, Velocity={velocity}, Keyboard-controled Force: {force}"
+            f"R={r}, ({cx}, {cy}, {cz}), Mass={mass}, Velocity={velocity}, Keyboard-controled Force: {force}, Tracked: {tracked}"
         )
         self.redraw()
 
@@ -115,7 +119,7 @@ class SphereApp:
 
         colors = plt.cm.tab10(np.linspace(0, 1, max(len(self.spheres), 1)))
 
-        for i, (r, cx, cy, cz, mass, velocity, force) in enumerate(self.spheres):
+        for i, (r, cx, cy, cz, mass, velocity, force, tracked) in enumerate(self.spheres):
             x, y, z = self.sphere_mesh(r, cx, cy, cz)
             self.ax.plot_surface(
                 x,
@@ -134,7 +138,7 @@ class SphereApp:
 
         if self.spheres:
             pts = []
-            for r, cx, cy, cz, _, _2, _3 in self.spheres:
+            for r, cx, cy, cz, _, _2, _3, _4 in self.spheres:
                 pts.extend([
                     (cx - r, cy - r, cz - r),
                     (cx + r, cy + r, cz + r),

@@ -29,8 +29,9 @@ def get_full_points():
         mass = i[4]
         velocity = i[5]
         force = i[6]
+        tracked = i[7]
         
-        points_tot.append([cx, cy, cz, radius, mass, velocity, force])
+        points_tot.append([cx, cy, cz, radius, mass, velocity, force,tracked])
 
     return points_tot
 

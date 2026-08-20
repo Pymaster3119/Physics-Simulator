@@ -16,6 +16,8 @@ uniform int u_pointCount;
 uniform samplerBuffer u_points_tex;
 uniform samplerBuffer u_star_velocities;
 
+uniform int u_trakedStar;
+
 float customDot (vec3 a, vec3 b)
 {
     //TODO: update
@@ -137,6 +139,7 @@ void main() {
         vec3 lightDir = customNormalize(vec3(1.0, 1.0, -1.0));
         float color = max(0.0, customDot(normal, lightDir)) + 0.1;
         
-        screen_color = vec4(color,color,color,1);
+        if (u_trakedStar != closest_index) { screen_color = vec4(color,color,color,1);}
+        else { screen_color = vec4(color,0,0,1);}
     } else {screen_color = vec4(0, 0, 0, 1);}
 }

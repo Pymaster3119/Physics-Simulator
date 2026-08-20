@@ -5,6 +5,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 import json
 import random
+import math
 
 class SphereApp:
     def __init__(self, root):
@@ -29,6 +30,7 @@ class SphereApp:
         ttk.Label(control, text="Camera mass (camera is at (0,0,0))").grid(row=9, column=0)
         ttk.Label(control, text="Camera Velocity - format (vx, vy, vz)").grid(row=10, column=0)
         ttk.Label(control, text="Camera Force Control").grid(row=11, column=0)
+        ttk.Label(control, text="Random star will be tracked").grid(row=12, column=0)
 
         self.radiusmin = tk.StringVar(value="1200000000")
         self.radiusmax = tk.StringVar(value="1600000000")
@@ -40,13 +42,13 @@ class SphereApp:
         self.czmax = tk.StringVar(value="25920000000")
         self.massmin = tk.StringVar(value="10000000")
         self.massmax = tk.StringVar(value="10000000000")
-        self.vxmin = tk.StringVar(value = "0")
-        self.vxmax = tk.StringVar(value = "0")
-        self.vymin = tk.StringVar(value = "0")
-        self.vymax = tk.StringVar(value = "0")
-        self.vzmin = tk.StringVar(value = "0")
-        self.vzmax = tk.StringVar(value = "0")
-        self.nobjects = tk.StringVar(value="1000")
+        self.vxmin = tk.StringVar(value = "-100000000")
+        self.vxmax = tk.StringVar(value = "100000000")
+        self.vymin = tk.StringVar(value = "-100000000")
+        self.vymax = tk.StringVar(value = "100000000")
+        self.vzmin = tk.StringVar(value = "-100000000")
+        self.vzmax = tk.StringVar(value = "100000000")
+        self.nobjects = tk.StringVar(value="100")
         self.cammass = tk.StringVar(value="0.1")
         self.camvel = tk.StringVar(value="(0, 0, 0)")
         self.camforce = tk.BooleanVar(value = True)
@@ -74,15 +76,15 @@ class SphereApp:
         ttk.Checkbutton(control, variable=self.camforce, width=10).grid(row=11, column=1)
 
         ttk.Button(control, text="Generate Sky", command=self.add_sphere).grid(
-            row=12, column=0, columnspan=3, pady=10, sticky="ew"
+            row=13, column=0, columnspan=3, pady=10, sticky="ew"
         )
 
         ttk.Button(control, text="Clear All", command=self.clear).grid(
-            row=13, column=0, columnspan=3, sticky="ew"
+            row=14, column=0, columnspan=3, sticky="ew"
         )
 
         self.listbox = tk.Listbox(control, width=80, height=15)
-        self.listbox.grid(row=14, column=0, columnspan=3, pady=10)
+        self.listbox.grid(row=15, column=0, columnspan=3, pady=10)
 
         self.fig = plt.Figure(figsize=(6, 6))
         self.ax = self.fig.add_subplot(111, projection="3d")
@@ -137,11 +139,13 @@ class SphereApp:
             vy = random.random() * (vymax-vymin) + vymin
             vz = random.random() * (vzmax-vzmin) + vzmin
             velocity = f"({vx}, {vy}, {vz})"
-            self.spheres.append((r, cx, cy, cz, mass, velocity, False))
+            self.spheres.append([r, cx, cy, cz, mass, velocity, False, False])
             self.listbox.insert(
                 tk.END,
                 f"R={r}, ({cx}, {cy}, {cz}), Mass={mass}, Velocity={velocity}"
             )
+        self.spheres[1][7] = True
+
         self.redraw()
 
     def clear(self):
@@ -157,7 +161,7 @@ class SphereApp:
 
         colors = plt.cm.tab10(np.linspace(0, 1, max(len(self.spheres), 1)))
 
-        for i, (r, cx, cy, cz, mass, velocity, force) in enumerate(self.spheres):
+        for i, (r, cx, cy, cz, mass, velocity, force, tracked) in enumerate(self.spheres):
             x, y, z = self.sphere_mesh(r, cx, cy, cz)
             self.ax.plot_surface(
                 x,
@@ -176,7 +180,7 @@ class SphereApp:
 
         if self.spheres:
             pts = []
-            for r, cx, cy, cz, _, _2, _3 in self.spheres:
+            for r, cx, cy, cz, _, _2, _3, _4 in self.spheres:
                 pts.extend([
                     (cx - r, cy - r, cz - r),
                     (cx + r, cy + r, cz + r),
