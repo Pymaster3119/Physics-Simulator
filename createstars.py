@@ -10,7 +10,7 @@ import math
 class SphereApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("3D Sky Builder")
+        self.root.title("Aditya's GSET Physics Simulator - Star Scene Builder")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.spheres = []
@@ -30,7 +30,8 @@ class SphereApp:
         ttk.Label(control, text="Camera mass (camera is at (0,0,0))").grid(row=9, column=0)
         ttk.Label(control, text="Camera Velocity - format (vx, vy, vz)").grid(row=10, column=0)
         ttk.Label(control, text="Camera Force Control").grid(row=11, column=0)
-        ttk.Label(control, text="Random star will be tracked").grid(row=12, column=0)
+        ttk.Label(control, text="Camera Force Magnitude").grid(row=12, column=0)
+        ttk.Label(control, text="Random star will be tracked").grid(row=13, column=0)
 
         self.radiusmin = tk.StringVar(value="1200000000")
         self.radiusmax = tk.StringVar(value="1600000000")
@@ -52,6 +53,8 @@ class SphereApp:
         self.cammass = tk.StringVar(value="0.1")
         self.camvel = tk.StringVar(value="(0, 0, 0)")
         self.camforce = tk.BooleanVar(value = True)
+        self.scenarioname = tk.StringVar(value="New Scene")
+        self.cameraforcenum = tk.StringVar(value="10000000")
 
 
         ttk.Entry(control, textvariable=self.radiusmin, width=10).grid(row=0, column=1)
@@ -74,17 +77,20 @@ class SphereApp:
         ttk.Entry(control, textvariable=self.cammass, width=10).grid(row=9, column=1)
         ttk.Entry(control, textvariable=self.camvel, width=10).grid(row=10, column=1)
         ttk.Checkbutton(control, variable=self.camforce, width=10).grid(row=11, column=1)
+        ttk.Entry(control, textvariable=self.cameraforcenum, width=10).grid(row=12, column=1)
+        ttk.Label(control,text="Scene Name", width=10).grid(row=14, column=0)
+        ttk.Entry(control, textvariable=self.scenarioname, width=10).grid(row=14, column=1, columnspan=2, pady=10, sticky="ew")
 
         ttk.Button(control, text="Generate Sky", command=self.add_sphere).grid(
-            row=13, column=0, columnspan=3, pady=10, sticky="ew"
+            row=15, column=0, columnspan=3, pady=10, sticky="ew"
         )
 
         ttk.Button(control, text="Clear All", command=self.clear).grid(
-            row=14, column=0, columnspan=3, sticky="ew"
+            row=16, column=0, columnspan=3, sticky="ew"
         )
 
         self.listbox = tk.Listbox(control, width=80, height=15)
-        self.listbox.grid(row=15, column=0, columnspan=3, pady=10)
+        self.listbox.grid(row=16, column=0, columnspan=3, pady=10)
 
         self.fig = plt.Figure(figsize=(6, 6))
         self.ax = self.fig.add_subplot(111, projection="3d")
@@ -198,8 +204,8 @@ class SphereApp:
         self.canvas.draw()
 
     def on_close(self):
-        with open("spheres.json", "w") as txt:
-            json.dump({"spheres":self.spheres, "camera": {"mass": float(self.cammass.get()),"velocity": self.camvel.get(), "forcecontrol": self.camforce.get()}}, txt)
+        with open("Scenarios/" + self.scenarioname.get() + ".json", "w") as txt:
+            json.dump({"spheres":self.spheres, "camera": {"mass": float(self.cammass.get()),"velocity": self.camvel.get(), "forcecontrol": self.camforce.get(), "forcemag": self.cameraforcenum.get()}}, txt)
         self.root.destroy()
 
 root = tk.Tk()

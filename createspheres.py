@@ -28,7 +28,7 @@ class SphereApp:
         ttk.Label(control, text="Camera Velocity - format (vx, vy, vz)").grid(row=9, column=0)
         ttk.Label(control, text="Camera Force Control").grid(row=10, column=0)
 
-        self.radius = tk.StringVar(value="1")
+        self.radius = tk.StringVar(value="1200000000")
         self.cx = tk.StringVar(value="0")
         self.cy = tk.StringVar(value="0")
         self.cz = tk.StringVar(value="0")

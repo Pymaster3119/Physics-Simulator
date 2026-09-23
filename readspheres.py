@@ -31,7 +31,7 @@ def get_full_points():
         force = i[6]
         tracked = i[7]
         
-        points_tot.append([cx, cy, cz, radius, mass, velocity, force,tracked])
+        points_tot.append([cx, cy, cz, radius, mass, velocity, force,tracked, 0,0,0])
 
     return points_tot
 
@@ -41,8 +41,9 @@ def read_cam():
     mass = cam["mass"]
     velocity = cam["velocity"]
     force = cam["forcecontrol"]
+    forcemag = int(cam["forcemag"])
 
-    return (mass, velocity, force)
+    return (mass, velocity, force, forcemag)
 
 if __name__ == "__main__":
     print(read_spheres().shape)

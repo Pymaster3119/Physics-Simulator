@@ -47,23 +47,33 @@ class TKWindow():
         self.update_vals()
         self.root.mainloop()
 
+    def shutdown(self):
+        self.root.quit()
+        self.root.destroy()
+
     def update_vals(self):
         try:
             with open("simulatorstats.json", 'r') as txt:
-                data = json.load(txt)
-                CAMERAVELOCITY = data["CAMERAVELOCITY"]
-                LIGHTSPEED = data["LIGHTSPEED"]
-                dT = data["DELTATIME"]
-                framerate = data["FRAMERATE"]
-                force = data["FORCE"]
-                acc = data["ACC"]
-                todt = data["TRACKEDOBJDT"]
-                tov = data["TRACKEDOBJV"]
-                mass = data["MASS"]
-                tmass = data["TMASS"]
-                cpoints = data["CPOINTS"]
-                tpoints = data["TPOINTS"]
-                
+                try:
+                    data = json.load(txt)
+                    CAMERAVELOCITY = data["CAMERAVELOCITY"]
+                    LIGHTSPEED = data["LIGHTSPEED"]
+                    dT = data["DELTATIME"]
+                    framerate = data["FRAMERATE"]
+                    force = data["FORCE"]
+                    acc = data["ACC"]
+                    todt = data["TRACKEDOBJDT"]
+                    tov = data["TRACKEDOBJV"]
+                    mass = data["MASS"]
+                    tmass = data["TMASS"]
+                    cpoints = data["CPOINTS"]
+                    tpoints = data["TPOINTS"]
+                except Exception as e:
+                    with open("simulatorstats.json", "r") as txt2:
+                        if txt2.readline()=="SHUTDOWN":
+                            self.shutdown()
+                            return
+                                   
             velnew = np.linalg.norm(np.array(CAMERAVELOCITY))
             self.velocity.set(f"{velnew} meters per second/ {LIGHTSPEED} meters per second")
             self.beta.set(f"β = {velnew / LIGHTSPEED}")
@@ -110,7 +120,7 @@ class TKWindow():
                 self.cameracanvas.draw()
 
         except Exception as e:
-            print(e)
+            pass
         self.root.after(25, self.update_vals)
 
 window = TKWindow()

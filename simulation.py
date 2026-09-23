@@ -12,7 +12,7 @@ import time
 SCREEN_SIZE = (500, 500)
 
 WINDOW_CREATION_FLAGS = pg.OPENGL | pg.DOUBLEBUF
-FRAMERATE = 30
+FRAMERATE = 60
 DATA_TYPE_COLORED_VERTEX = np.dtype({
     'formats': [np.float32, np.float32, np.float32],
     'offsets': [0, 4, 8],
@@ -20,13 +20,14 @@ DATA_TYPE_COLORED_VERTEX = np.dtype({
     'itemsize': 12})
 
 CAMERAPOSITION = [0,0,0]
-CAMERAROTATION = [0.05,0.05,0]
+CAMERAROTATION = [0.01,-0.01,0]
 FORCE = [0,0,0]
-MAX_FORCE = 1e14
+MAX_FORCE = 0
 LIGHTSPEED = 299792458
 CAMERAVELOCITY = [0,0,0]
 ROTMAT = None
 TRACKED_STAR = 0
+collisions = []
 
 
 timeBetweenFrames = 1/FRAMERATE
@@ -83,6 +84,7 @@ class Mesh:
 class Renderer:
     SCREEN_COLOR = [0,0,0,1]
     def __init__(self):
+        global MAX_FORCE
         glClearColor(*self.SCREEN_COLOR)
         self.mesh = Mesh().build_colored_triangle()
         self.shader = make_shader("vertex.txt", "fragment.txt")
@@ -95,7 +97,7 @@ class Renderer:
         self.point_buffer_loc = glGetUniformLocation(self.shader, "u_points_tex")
         self.velocity_buffer_loc = glGetUniformLocation(self.shader, "u_star_velocities")
         self.tracked_star_loc = glGetUniformLocation(self.shader, "u_trackedStar")
-        self.cameramass, self.cameravelocity, self.cameraforce = readspheres.read_cam()
+        self.cameramass, self.cameravelocity, self.cameraforce, MAX_FORCE = readspheres.read_cam()
         self.points = readspheres.get_full_points()
         match = re.match(r"^\(([^,]+),([^,]+),([^,]+)\)$", self.cameravelocity)
         self.dT = (1/FRAMERATE)
@@ -125,44 +127,135 @@ class Renderer:
             raise Exception("One of the velocity strings is not correct: " + str)
 
         return [float(vx), float(vy), float(vz)]
-    def update_point(self, point):
-        x,y,z,r,mass,velocity, force_controlled_by_keyboard, tracked = point
+
+    def check_for_collisions(self, point, ptidx):
+        x,y,z,r,mass,velocity, force_controlled_by_keyboard, tracked, vxmeasured, vymeasured, vzmeasured = point
+        vx, vy, vz = self.parseVelocities(velocity.strip())
+        for idx, point2 in enumerate(self.points):
+            if point2 != point:
+                try:
+                    x2,y2,z2,r2,mass2,velocity2, force_controlled_by_keyboard2, tracked2, vxmeasured2, vymeasured2, vzmeasured2 = point2
+                    vx2, vy2, vz2 = self.parseVelocities(velocity2.strip())
+                    dx = x-x2
+                    dy = y-y2
+                    dz = z-z2
+                    dvx = vx-vx2
+                    dvy = vy-vy2
+                    dvz = vz-vz2
+                    rdiff = r2+r
+                    discriminant = (dx*dvx + dy*dvy + dz*dvz)**2 - (dvx**2 + dvy**2 + dvz**2)*(dx**2 + dy**2 + dz**2 - rdiff**2)
+                    if discriminant >= 0:
+                        t1 = -((dx*dvx + dy*dvy + dz*dvz) + math.sqrt(discriminant))/(dvx**2 + dvy**2 + dvz**2)
+                        t2 = -((dx*dvx + dy*dvy + dz*dvz) - math.sqrt(discriminant))/(dvx**2 + dvy**2 + dvz**2)
+                        t = 99999
+                        if t1 >= -1e-5 and abs(x+vx*t1 - x2-vx2*t1) <= rdiff + 1e-5 and  abs(y+vy*t1 - y2-vy2*t1) <= rdiff + 1e-5 and abs(z+vz*t1 - z2-vz2*t1) <= rdiff + 1e-5:
+                            t=t1
+                        if t2 >= -1e-5  and t2 < t and abs(x+vx*t2 - x2-vx2*t2) <= rdiff + 1e-5 and  abs(y+vy*t2 - y2-vy2*t2) <= rdiff + 1e-5 and abs(z+vz*t2 - z2-vz2*t2) <= rdiff + 1e-5:
+                            t=t2
+                        if t<self.referenceFrameDT:
+                            collisions.append([idx, t, ptidx, "standard"])
+                except:
+                    pass
+
+
+    
+    def update_point(self, point, pindex):
+        x,y,z,r,mass,velocity, force_controlled_by_keyboard, tracked, vxmeasured, vymeasured, vzmeasured = point
         if tracked and self.tstartpostion is None:
             self.tstartpostion = np.array((x,y,z))
-        
+
+        t = self.referenceFrameDT
+        collision = None
+        for i in collisions:
+            if i[0] == pindex:
+
+                t = i[1]
+                collision = i
         vx, vy, vz = self.parseVelocities(velocity.strip())
         v = np.linalg.norm(np.array([vx,vy,vz]))
         dt = self.referenceFrameDT * math.sqrt(1 - ((v**2)/(LIGHTSPEED**2)))
-        x += dt * float(vx)
-        y += dt * float(vy)
-        z += dt * float(vz)
 
+        x2 = t * float(vx)
+        y2 = t * float(vy)
+        z2 = t * float(vz)
+        vprimestr = velocity
+
+        if collision != None and collision[3] == "standard":
+            thisv = np.array([vx, vy, vz])
+            thisgamma = 1/math.sqrt(1 - (v/LIGHTSPEED)**2)
+            v2x, v2y, v2z = self.parseVelocities(self.points[collision[2]][5])
+            thismass = mass
+            thatmass = self.points[collision[2]][4]
+            thatv = np.array([v2x, v2y, v2z])
+            thatgamma = 1/math.sqrt(1 - (np.linalg.norm(thatv)/LIGHTSPEED)**2)
+            thismomentum = thismass * thisgamma * thisv
+            thatmomentum = thatmass * thatgamma * thatv
+            thisenergy = thisgamma * thismass * LIGHTSPEED**2
+            thatenergy = thatgamma * thatmass * LIGHTSPEED**2
+            totalenergy = thisenergy + thatenergy
+            vref = (thismomentum + thatmomentum) * LIGHTSPEED**2 / totalenergy
+            vref_gamma = 1 / np.sqrt(1 - np.linalg.norm(vref)**2 / LIGHTSPEED**2)
+            thisvinmovingreferenceframe = None
+            if (np.linalg.norm(vref)**2 / LIGHTSPEED**2) < 1e-10:
+                thisvinmovingreferenceframe = thisv.copy()
+            else:
+                vref_hat = vref / np.linalg.norm(vref)
+                thisv_par = np.dot(thisv, vref_hat) * vref_hat
+                thisv_perp = thisv - thisv_par
+                denominator = 1 - np.dot(thisv, vref) / LIGHTSPEED**2
+                thisvinmovingreferenceframe = (thisv_par - vref + thisv_perp / vref_gamma) / denominator
+            thisvprimeinmovingreferenceframe = -thisvinmovingreferenceframe
+            vprime = thisvprimeinmovingreferenceframe.copy()
+            if (np.linalg.norm(vref)**2 / LIGHTSPEED**2 > 1e-30):
+                vref_hat = vref / np.linalg.norm(vref)
+                u_parallel = np.dot(thisvprimeinmovingreferenceframe, vref_hat) * vref_hat
+                u_perp = thisvprimeinmovingreferenceframe - u_parallel
+                denominator = 1 + np.dot(thisvprimeinmovingreferenceframe, vref) / LIGHTSPEED**2
+                vprime=(u_parallel + vref + u_perp / vref_gamma) / denominator
+            
+
+
+            x2 += vprime[0] * (self.referenceFrameDT - t)
+            y2 += vprime[1] * (self.referenceFrameDT - t)
+            z2 += vprime[2] * (self.referenceFrameDT - t)
+            print(vprime)
+            print(self.referenceFrameDT - t)
+            vprimestr = f"({vprime[0]},{vprime[1]},{vprime[2]})"
+
+        vxmeasured = x2/self.referenceFrameDT
+        vymeasured = y2/self.referenceFrameDT
+        vzmeasured = z2/self.referenceFrameDT
+        x += x2
+        y += y2
+        z += z2
         if tracked:
             self.trackedDt = dt
             self.trackedV = v
             self.tmass = mass
             self.totaltime += self.referenceFrameDT
-            self.tspacetimediagram.append((np.linalg.norm(np.array([x,y,z]) - self.tstartpostion) / 299_792_458,self.totaltime))
-        
-        return [x,y,z,r,mass,velocity, force_controlled_by_keyboard, tracked]
+            self.tspacetimediagram.append((np.linalg.norm(np.array([x,y,z]) - self.tstartpostion) / 299_792_458,self.totaltime))        
+        return [x,y,z,r,mass,vprimestr, force_controlled_by_keyboard, tracked, vxmeasured, vymeasured, vzmeasured]
     
     def update_points(self):
-        global CAMERAPOSITION, CAMERAVELOCITY, timeBetweenFrames
+        global CAMERAPOSITION, CAMERAVELOCITY, timeBetweenFrames, collisions
+        collisions = []
         # CALCULATE WORLD DELTATIME
         self.dT = timeBetweenFrames / 1e9
-        print(self.dT)
         v = np.linalg.norm(np.array(CAMERAVELOCITY))
         gamma = 1/ math.sqrt(1 - (v/LIGHTSPEED) ** 2)
         self.referenceFrameDT = self.dT * gamma
-
+        #Calculate future collisions
+        for idx, i in enumerate(self.points):
+            self.check_for_collisions(i, idx)
         new_points = []
-        for i in self.points:
-            new_points.append(self.update_point(i))
+        for idx, i in enumerate(self.points):
+            new_points.append(self.update_point(i, idx))
         self.points = new_points
         cx, cy, cz = CAMERAPOSITION
         vx, vy, vz = self.cameravelocity
         if self.cameraforce:
             f = np.array(FORCE)
+            print(f)
             if np.linalg.norm(f) != 0:
                 v = np.array(CAMERAVELOCITY)
                 funit = f / np.linalg.norm(f)
@@ -237,8 +330,8 @@ class Renderer:
 
     def calculate_length_contraction(self, star_point):
         global CAMERAPOSITION, CAMERAVELOCITY
-        x,y,z,r,mass,velocity, force_controlled_by_keyboard, tracked = star_point
-        velocity = np.array(self.parseVelocities(velocity))
+        x,y,z,r,mass,velocity, force_controlled_by_keyboard, tracked, vxmeasured, vymeasured, vzmeasured = star_point
+        velocity = [vxmeasured, vymeasured, vzmeasured]
         cameravel = np.array(CAMERAVELOCITY)
         relative_position = np.array([x - CAMERAPOSITION[0], y - CAMERAPOSITION[1], z-CAMERAPOSITION[2]])
 
@@ -272,6 +365,32 @@ class Renderer:
         with open("simulatorstats.json", "w") as txt:
             readspheres.json.dump({"CAMERAVELOCITY": CAMERAVELOCITY, "LIGHTSPEED": LIGHTSPEED, "DELTATIME": self.referenceFrameDT, "FRAMERATE": 1/(timeBetweenFrames/1e9), "FORCE": FORCE, "ACC": self.acc, "TRACKEDOBJDT": self.trackedDt, "TRACKEDOBJV": self.trackedV, "MASS": self.cameramass, "TMASS": self.tmass, "CPOINTS": self.cspacetimediagram, "TPOINTS": self.tspacetimediagram}, txt)
 
+    def relativeposition(self, point):
+        px = point[0]
+        py = point[1]
+        pz = point[2]
+        pointpos = np.array([px,py,pz])
+
+        cx = CAMERAPOSITION[0]
+        cy = CAMERAPOSITION[1]
+        cz = CAMERAPOSITION[2]
+        campos = np.array([cx,cy,cz])
+
+        relative_vector = pointpos - campos
+
+        camvel = np.array(CAMERAVELOCITY)
+        if np.linalg.norm(camvel) > 1e-10:
+            camvhat = camvel / np.linalg.norm(camvel)
+        else:
+            camvhat = np.array([1,0,0])
+        gammacam = 1 / math.sqrt(1 - (np.linalg.norm(camvel)**2)/LIGHTSPEED**2)
+
+        r_parallel = np.dot(relative_vector, camvhat) * camvhat
+        r_perp = relative_vector - r_parallel
+        r_parallel = r_parallel / gammacam
+        transformed = r_parallel + r_perp
+        return [transformed[0], transformed[1], transformed[2], point[3]]
+
     def draw(self):
         global timeBetweenFrames, frameStartTime, ROTMAT, TRACKED_STAR
         #Update framerate and points
@@ -282,7 +401,7 @@ class Renderer:
 
         #Populate points matrix & upload to GPU
         N = len(self.points)
-        points = [[i[0] - CAMERAPOSITION[0], i[1] - CAMERAPOSITION[1], i[2] - CAMERAPOSITION[2], i[3]] for i in self.points]
+        points = [self.relativeposition(i) for i in self.points]
         data = np.array(points, dtype=np.float64)
         data = data / 1e12
         data = data.astype(np.float32)
