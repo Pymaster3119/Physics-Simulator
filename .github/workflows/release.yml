@@ -61,5 +61,4 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: release/${{ matrix.platform.name }}
           asset_name: ${{ matrix.platform.name }}
-          tag: ${{ github.ref }}
           overwrite: true

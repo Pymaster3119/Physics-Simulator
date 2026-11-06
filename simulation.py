@@ -218,8 +218,6 @@ class Renderer:
             x2 += vprime[0] * (self.referenceFrameDT - t)
             y2 += vprime[1] * (self.referenceFrameDT - t)
             z2 += vprime[2] * (self.referenceFrameDT - t)
-            print(vprime)
-            print(self.referenceFrameDT - t)
             vprimestr = f"({vprime[0]},{vprime[1]},{vprime[2]})"
 
         vxmeasured = x2/self.referenceFrameDT
@@ -255,7 +253,6 @@ class Renderer:
         vx, vy, vz = self.cameravelocity
         if self.cameraforce:
             f = np.array(FORCE)
-            print(f)
             if np.linalg.norm(f) != 0:
                 v = np.array(CAMERAVELOCITY)
                 funit = f / np.linalg.norm(f)
