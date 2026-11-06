@@ -55,10 +55,8 @@ jobs:
 
           cp dist/main* release/${{ matrix.platform.name }}
 
-      - name: Upload binaries to GitHub release
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: release/${{ matrix.platform.name }}
-          asset_name: ${{ matrix.platform.name }}
-          overwrite: true
+          name: ${{ matrix.platform.name }}
+          path: release/${{ matrix.platform.name }}
