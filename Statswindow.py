@@ -117,6 +117,9 @@ class TKWindow():
                 largest_max = max(x_max, y_max)
                 self.cax.set_xlim(0, largest_max)
                 self.cax.set_ylim(0, largest_max)
+                self.cax.set_xlabel("Distance from starting position (light-seconds)")
+                self.cax.set_ylabel("Time relative to stationary reference frame (seconds)")
+                self.cax.set_title("Spacetime Curve")
                 self.cameracanvas.draw()
 
         except Exception as e:

@@ -326,7 +326,7 @@ class Renderer:
             CAMERAPOSITION = (cx, cy, cz)
             self.cameravelocity = [vx, vy, vz]
             CAMERAVELOCITY = self.cameravelocity
-        self.tspacetimediagram.append((np.linalg.norm(np.array(CAMERAPOSITION) - np.array([0,0,0])) / 299_792_458,self.totaltime))
+        self.cspacetimediagram.append((np.linalg.norm(np.array(CAMERAPOSITION) - np.array([0,0,0])) / 299_792_458,self.totaltime))
 
     def calculate_length_contraction(self, star_point):
         global CAMERAPOSITION, CAMERAVELOCITY
