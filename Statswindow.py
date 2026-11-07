@@ -110,8 +110,8 @@ class TKWindow():
                 self.cameracanvas.get_tk_widget().grid(row=5, column = 0, columnspan=2)
             else:
                 self.cax.clear()
-                self.cax.plot(c_x, c_y, marker='o', color='red', linestyle='')
-                self.cax.plot(t_x, t_y, marker='o', color='blue', linestyle='')
+                self.cax.plot(c_x, c_y, marker='o', color='blue', linestyle='')
+                self.cax.plot(t_x, t_y, marker='o', color='red', linestyle='')
                 _, x_max = self.cax.get_xlim()
                 _, y_max = self.cax.get_ylim()
                 largest_max = max(x_max, y_max)

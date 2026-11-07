@@ -11,6 +11,8 @@ def statsworker():
     import Statswindow
 def starworker():
     import createstars
+def loadtutorial():
+    import about
 
 
 def start_simulation(filename):
@@ -53,6 +55,21 @@ def start_starcreation():
     p1.join()
     load_file_selector()
 
+def start_tutorial():
+    global root
+
+    if root is not None:
+        root.quit()
+        root.destroy()
+        root.update()
+
+    p1 = multiprocessing.Process(target=loadtutorial)
+
+    p1.start()
+
+    p1.join()
+    load_file_selector()
+
 root = None
 
 
@@ -80,6 +97,8 @@ def load_file_selector():
 
     tk.Label(frame, text="="*33).grid(row = len(sorted(dir_path.iterdir())) + 9, column=0, sticky="w", pady=2)
     tk.Button(frame, text="Generate New Night Sky Scene", command=start_starcreation).grid(row = len(sorted(dir_path.iterdir())) + 10, column=0, sticky="w", pady=2)
+    tk.Label(frame, text="="*33).grid(row = len(sorted(dir_path.iterdir())) + 11, column=0, sticky="w", pady=2)
+    tk.Button(frame, text="About this app", command=loadtutorial).grid(row = len(sorted(dir_path.iterdir())) + 10, column=0, sticky="w", pady=2)
 
     root.mainloop()
 
