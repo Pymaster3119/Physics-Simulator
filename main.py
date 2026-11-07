@@ -4,10 +4,6 @@ import tkinter as tk
 import os
 import sys
 
-scriptdir = os.path.dirname(sys.executable)
-print(scriptdir)
-os.chdir(scriptdir)
-
 
 def simworker():
     import simulation
@@ -89,4 +85,9 @@ def load_file_selector():
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
+    scriptdir = os.path.dirname(sys.executable)
+    print(scriptdir)
+    os.chdir(scriptdir)
     load_file_selector()
+    
