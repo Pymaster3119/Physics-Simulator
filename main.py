@@ -1,6 +1,10 @@
 import multiprocessing
 from pathlib import Path
 import tkinter as tk
+import os
+
+scriptdir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(scriptdir)
 
 
 def simworker():

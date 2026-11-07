@@ -51,9 +51,12 @@ jobs:
       - name: Prepare assets
         shell: bash
         run: |
-          mkdir -p release
-
-          cp dist/main* release/${{ matrix.platform.name }}
+          mkdir -p release/${{ matrix.platform.name }}/
+          mkdir -p release/Scenarios
+          cp dist/main* release/${{ matrix.platform.name }}/
+          cp -r Scenarios/ release/${{ matrix.platform.name }}/Scenarios
+          cp fragment.txt release/${{ matrix.platform.name }}/
+          cp vertex.txt release/${{ matrix.platform.name }}/
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
