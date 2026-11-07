@@ -2,8 +2,10 @@ import multiprocessing
 from pathlib import Path
 import tkinter as tk
 import os
+import sys
 
-scriptdir = os.path.dirname(os.path.abspath(__file__))
+scriptdir = os.path.dirname(sys.executable)
+print(scriptdir)
 os.chdir(scriptdir)
 
 
